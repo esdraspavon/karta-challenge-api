@@ -122,3 +122,19 @@ knexfile.ts
 - `beforeAll` — rollback all + migrate latest
 - `beforeEach` — clean tables in reverse FK order + run seeds (so each test starts from the seed baseline)
 - `afterAll` — close the DB connection
+
+## Postman collection
+
+`postman/karta-api.postman_collection.json` is an end-to-end suite (22 requests, 49 assertions) that walks the full flow on a **freshly seeded** DB: login, pending agreements, idempotent sign, admin version bump, snapshot verification.
+
+```bash
+# 1. reset DB and start the server
+rm -f dev.sqlite && npm run migrate && npm run seed
+npm run dev
+
+# 2a. import in Postman: File → Import → pick the JSON, then run with the Collection Runner
+# 2b. or run headlessly with Newman (no install required):
+npx --yes newman run postman/karta-api.postman_collection.json
+```
+
+Requests run in order and chain state via collection variables (`token`, `cardholder_v1_id`, etc.). If any earlier test fails (e.g. the DB is not fresh), later ones cascade.

@@ -1,0 +1,579 @@
+{
+  "info": {
+    "name": "Karta Challenge API",
+    "description": "End-to-end test flow for the Karta backend.\n\n**Prerequisites**\n1. Reset the DB: `rm -f dev.sqlite && npm run migrate && npm run seed`\n2. Start the API: `npm run dev`\n3. Run this collection (Collection Runner). Requests must run in order — they chain state via collection variables.\n\nThe flow asserts versioning, idempotency, snapshot of pdf_url, and admin/user auth separation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "api_key", "value": "karta_admin_test_key_change_me" },
+    { "key": "email", "value": "alice@karta.test" },
+    { "key": "password", "value": "Password1!" },
+    { "key": "token", "value": "" },
+    { "key": "user_id", "value": "" },
+    { "key": "cardholder_v1_id", "value": "" },
+    { "key": "privacy_v1_id", "value": "" },
+    { "key": "cardholder_v2_id", "value": "" },
+    { "key": "esign_v1_id", "value": "" },
+    { "key": "first_signature_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('ok flag is true', () => pm.expect(pm.response.json().ok).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login (alice) - success",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('returns a token', () => pm.expect(body.token).to.be.a('string').and.not.empty);",
+              "pm.test('user is alice', () => pm.expect(body.user.email).to.equal('alice@karta.test'));",
+              "pm.test('card program is MC', () => pm.expect(body.user.card_program.code).to.equal('MASTERCARD_KARTA_METAL'));",
+              "pm.collectionVariables.set('token', body.token);",
+              "pm.collectionVariables.set('user_id', body.user.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Login - wrong password returns 401",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"WRONG\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 GET /me - with token",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('has email and card_program', () => {",
+              "  pm.expect(body.email).to.equal('alice@karta.test');",
+              "  pm.expect(body.card_program.code).to.equal('MASTERCARD_KARTA_METAL');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 GET /me - without token returns 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 GET /me - invalid token returns 401",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer not-a-real-token" }],
+        "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Pending agreements - fresh seed (alice has 2)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/pending-agreements", "host": ["{{base_url}}"], "path": ["me", "pending-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('alice has 2 pending agreements', () => pm.expect(body).to.have.lengthOf(2));",
+              "pm.test('all v1, all MC', () => {",
+              "  body.forEach(a => {",
+              "    pm.expect(a.version).to.equal(1);",
+              "    pm.expect(a.card_program.code).to.equal('MASTERCARD_KARTA_METAL');",
+              "  });",
+              "});",
+              "const cardholder = body.find(a => a.code === 'cardholder_agreement');",
+              "const privacy = body.find(a => a.code === 'privacy_policy');",
+              "pm.test('contains cardholder + privacy', () => {",
+              "  pm.expect(cardholder).to.exist;",
+              "  pm.expect(privacy).to.exist;",
+              "});",
+              "pm.collectionVariables.set('cardholder_v1_id', cardholder.id);",
+              "pm.collectionVariables.set('privacy_v1_id', privacy.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Sign cardholder v1 (first time)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{base_url}}/agreements/{{cardholder_v1_id}}/sign",
+          "host": ["{{base_url}}"],
+          "path": ["agreements", "{{cardholder_v1_id}}", "sign"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "const body = pm.response.json();",
+              "pm.test('returns signature with pdf_url_snapshot', () => {",
+              "  pm.expect(body.id).to.be.a('number');",
+              "  pm.expect(body.agreement_id).to.equal(Number(pm.collectionVariables.get('cardholder_v1_id')));",
+              "  pm.expect(body.pdf_url_snapshot).to.be.a('string').and.not.empty;",
+              "});",
+              "pm.collectionVariables.set('first_signature_id', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Sign cardholder v1 (second time = idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{base_url}}/agreements/{{cardholder_v1_id}}/sign",
+          "host": ["{{base_url}}"],
+          "path": ["agreements", "{{cardholder_v1_id}}", "sign"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('2xx (no 4xx on retry)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "const body = pm.response.json();",
+              "pm.test('same signature.id as the first call (idempotent)', () => {",
+              "  pm.expect(body.id).to.equal(Number(pm.collectionVariables.get('first_signature_id')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Pending after signing cardholder v1 (only privacy left)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/pending-agreements", "host": ["{{base_url}}"], "path": ["me", "pending-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('exactly 1 pending', () => pm.expect(body).to.have.lengthOf(1));",
+              "pm.test('it is privacy_policy v1', () => {",
+              "  pm.expect(body[0].code).to.equal('privacy_policy');",
+              "  pm.expect(body[0].version).to.equal(1);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Signed list - has cardholder v1 with original pdf_url",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/signed-agreements", "host": ["{{base_url}}"], "path": ["me", "signed-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('1 signed agreement', () => pm.expect(body).to.have.lengthOf(1));",
+              "pm.test('cardholder v1 with the original mozilla pdf_url snapshot', () => {",
+              "  pm.expect(body[0].code).to.equal('cardholder_agreement');",
+              "  pm.expect(body[0].version).to.equal(1);",
+              "  pm.expect(body[0].pdf_url).to.equal('https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Admin /admin/agreements - no API key returns 401",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"card_program_code\": \"MASTERCARD_KARTA_METAL\",\n  \"code\": \"cardholder_agreement\",\n  \"title\": \"Cardholder Agreement\",\n  \"pdf_url\": \"https://example.com/v2.pdf\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/admin/agreements", "host": ["{{base_url}}"], "path": ["admin", "agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Admin /admin/agreements - invalid API key returns 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "definitely-not-the-key" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"card_program_code\": \"MASTERCARD_KARTA_METAL\",\n  \"code\": \"cardholder_agreement\",\n  \"title\": \"Cardholder Agreement\",\n  \"pdf_url\": \"https://example.com/v2.pdf\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/admin/agreements", "host": ["{{base_url}}"], "path": ["admin", "agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Admin publishes v2 of cardholder",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"card_program_code\": \"MASTERCARD_KARTA_METAL\",\n  \"code\": \"cardholder_agreement\",\n  \"title\": \"Cardholder Agreement\",\n  \"pdf_url\": \"https://example.com/cardholder-v2.pdf\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/admin/agreements", "host": ["{{base_url}}"], "path": ["admin", "agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('version is 2', () => pm.expect(body.version).to.equal(2));",
+              "pm.test('pdf_url is the new one', () => pm.expect(body.pdf_url).to.equal('https://example.com/cardholder-v2.pdf'));",
+              "pm.collectionVariables.set('cardholder_v2_id', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Pending after v2 published (cardholder v2 reappears)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/pending-agreements", "host": ["{{base_url}}"], "path": ["me", "pending-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('2 pending: privacy v1 + cardholder v2', () => pm.expect(body).to.have.lengthOf(2));",
+              "const cardholder = body.find(a => a.code === 'cardholder_agreement');",
+              "pm.test('cardholder is v2', () => pm.expect(cardholder.version).to.equal(2));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Admin publishes a new code (esign_consent v1)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"card_program_code\": \"MASTERCARD_KARTA_METAL\",\n  \"code\": \"esign_consent\",\n  \"title\": \"E-Sign Consent\",\n  \"pdf_url\": \"https://example.com/esign.pdf\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{base_url}}/admin/agreements", "host": ["{{base_url}}"], "path": ["admin", "agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('new code starts at version 1', () => pm.expect(body.version).to.equal(1));",
+              "pm.test('code is esign_consent', () => pm.expect(body.code).to.equal('esign_consent'));",
+              "pm.collectionVariables.set('esign_v1_id', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Pending after new code (3 pending)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/pending-agreements", "host": ["{{base_url}}"], "path": ["me", "pending-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('3 pending: cardholder v2 + privacy v1 + esign v1', () => pm.expect(body).to.have.lengthOf(3));",
+              "const codes = body.map(a => a.code).sort();",
+              "pm.test('expected codes', () => pm.expect(codes).to.deep.equal(['cardholder_agreement', 'esign_consent', 'privacy_policy']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Sign cardholder v2",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{base_url}}/agreements/{{cardholder_v2_id}}/sign",
+          "host": ["{{base_url}}"],
+          "path": ["agreements", "{{cardholder_v2_id}}", "sign"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "pm.test('snapshot is the v2 pdf_url', () => pm.expect(pm.response.json().pdf_url_snapshot).to.equal('https://example.com/cardholder-v2.pdf'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Sign privacy_policy v1",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{base_url}}/agreements/{{privacy_v1_id}}/sign",
+          "host": ["{{base_url}}"],
+          "path": ["agreements", "{{privacy_v1_id}}", "sign"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Sign esign_consent v1",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{base_url}}/agreements/{{esign_v1_id}}/sign",
+          "host": ["{{base_url}}"],
+          "path": ["agreements", "{{esign_v1_id}}", "sign"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 Pending list is now empty",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/pending-agreements", "host": ["{{base_url}}"], "path": ["me", "pending-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('no pending left', () => pm.expect(pm.response.json()).to.have.lengthOf(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Signed list - 4 entries with correct snapshots",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{base_url}}/me/signed-agreements", "host": ["{{base_url}}"], "path": ["me", "signed-agreements"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('4 signed agreements', () => pm.expect(body).to.have.lengthOf(4));",
+              "const v1 = body.find(s => s.code === 'cardholder_agreement' && s.version === 1);",
+              "const v2 = body.find(s => s.code === 'cardholder_agreement' && s.version === 2);",
+              "pm.test('cardholder v1 snapshot is the original mozilla pdf', () => {",
+              "  pm.expect(v1.pdf_url).to.equal('https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf');",
+              "});",
+              "pm.test('cardholder v2 snapshot is the v2 pdf', () => {",
+              "  pm.expect(v2.pdf_url).to.equal('https://example.com/cardholder-v2.pdf');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
