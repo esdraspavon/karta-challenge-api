@@ -51,6 +51,15 @@ See `.env.example`. All variables are validated with Zod at boot — if any is m
 | `ADMIN_API_KEY` | Plaintext admin key. Only the SHA-256 hash is stored in the DB |
 | `DB_FILE` | SQLite file used in `development` / `production` |
 
+## API documentation (Swagger / OpenAPI)
+
+Once the server is running, the spec is available at:
+
+- **`http://localhost:3000/docs`** — Swagger UI (interactive playground; the "Authorize" button accepts a JWT and the admin API key).
+- **`http://localhost:3000/openapi.json`** — raw OpenAPI 3.0 document.
+
+The spec is generated from the existing Zod schemas via `@asteasolutions/zod-to-openapi`, so request/response shapes can never drift from the validation logic.
+
 ## Endpoints
 
 ### Public
