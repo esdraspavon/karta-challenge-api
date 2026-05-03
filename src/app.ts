@@ -4,6 +4,7 @@ import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import usersRoutes from './modules/users/users.routes';
 import agreementsRoutes from './modules/agreements/agreements.routes';
+import adminRoutes from './modules/admin/admin.routes';
 
 export function buildApp(): Express {
   const app = express();
@@ -18,6 +19,7 @@ export function buildApp(): Express {
   app.use('/auth', authRoutes);
   app.use(usersRoutes);
   app.use(agreementsRoutes);
+  app.use(adminRoutes);
 
   app.use(errorHandler);
   return app;
