@@ -1,5 +1,7 @@
 # karta-challenge-api
 
+[![CI](https://github.com/esdraspavon/karta-challenge-api/actions/workflows/ci.yml/badge.svg)](https://github.com/esdraspavon/karta-challenge-api/actions/workflows/ci.yml)
+
 Backend for the Karta technical challenge. Node + TypeScript + Express + Knex (SQLite).
 
 ## Requirements
