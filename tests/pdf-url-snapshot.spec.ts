@@ -22,7 +22,7 @@ describe('PDF URL snapshot — /me/signed-agreements is immutable to later agree
     const signRes = await request(app)
       .post(`/agreements/${target!.id}/sign`)
       .set('Authorization', `Bearer ${token}`);
-    expect(signRes.status).to.equal(200);
+    expect(signRes.status).to.equal(201);
     expect(signRes.body.pdf_url_snapshot).to.equal(originalUrl);
 
     // simulate someone editing the agreement's pdf_url directly in the DB

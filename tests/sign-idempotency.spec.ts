@@ -14,10 +14,11 @@ describe('POST /agreements/:id/sign — idempotency', () => {
     const target = (pending.body as Array<{ id: number }>)[0]!;
 
     const r1 = await request(app).post(`/agreements/${target.id}/sign`).set('Authorization', `Bearer ${token}`);
-    expect(r1.status).to.be.within(200, 299);
+    expect(r1.status, 'first sign creates the row → 201').to.equal(201);
 
     const r2 = await request(app).post(`/agreements/${target.id}/sign`).set('Authorization', `Bearer ${token}`);
-    expect(r2.status).to.be.within(200, 299);
+    expect(r2.status, 'second sign is idempotent → 200').to.equal(200);
+    expect(r2.body.id, 'returns the same signature.id').to.equal(r1.body.id);
 
     const count = await db('signatures')
       .where({ agreement_id: target.id, user_id: login.body.user.id })

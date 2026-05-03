@@ -83,7 +83,10 @@ export async function getPendingForUser(userId: number) {
   }));
 }
 
-export async function signAgreement(userId: number, agreementId: number) {
+export async function signAgreement(
+  userId: number,
+  agreementId: number,
+): Promise<{ signature: ReturnType<typeof formatSignature>; created: boolean }> {
   const user = await getUserOrThrow(userId);
 
   const agreement = await db<AgreementRow>('agreements').where({ id: agreementId }).first();
@@ -95,7 +98,7 @@ export async function signAgreement(userId: number, agreementId: number) {
     .where({ user_id: userId, agreement_id: agreementId })
     .first();
   if (existing) {
-    return formatSignature(existing, agreement);
+    return { signature: formatSignature(existing, agreement), created: false };
   }
 
   try {
@@ -107,14 +110,14 @@ export async function signAgreement(userId: number, agreementId: number) {
       })
       .returning(['id', 'user_id', 'agreement_id', 'pdf_url_snapshot', 'signed_at']);
     if (!inserted) throw new Error('Insert returned no row');
-    return formatSignature(inserted, agreement);
+    return { signature: formatSignature(inserted, agreement), created: true };
   } catch (err) {
     // Race-condition fallback: someone else created the row between our SELECT and INSERT.
     if (isUniqueConstraintError(err)) {
       const found = await db<SignatureRow>('signatures')
         .where({ user_id: userId, agreement_id: agreementId })
         .first();
-      if (found) return formatSignature(found, agreement);
+      if (found) return { signature: formatSignature(found, agreement), created: false };
     }
     throw err;
   }

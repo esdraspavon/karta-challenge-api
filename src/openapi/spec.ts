@@ -178,13 +178,14 @@ registry.registerPath({
   tags: ['User'],
   summary: 'Sign an agreement (idempotent)',
   description:
-    'Calling this twice for the same `(user, agreementId)` will return 2xx both times and produce a single row in the database. The response always includes `pdf_url_snapshot`, the URL captured at first-sign time.',
+    'First call returns **201** and creates the signature; subsequent calls for the same `(user, agreementId)` return **200** with the original signature. Either way, only one row exists in the DB and `pdf_url_snapshot` is the URL captured at first-sign time.',
   security: [{ [BearerAuth.name]: [] }],
   request: {
     params: agreementIdParam,
   },
   responses: {
-    200: { description: 'Signed (or already signed)', ...json(signatureSchema) },
+    201: { description: 'Newly signed (first call)', ...json(signatureSchema) },
+    200: { description: 'Already signed (idempotent retry)', ...json(signatureSchema) },
     401: { description: 'Missing or invalid JWT', ...json(errorSchema) },
     404: { description: 'Agreement not found for this user', ...json(errorSchema) },
   },

@@ -190,7 +190,7 @@
       ]
     },
     {
-      "name": "08 Sign cardholder v1 (first time)",
+      "name": "08 Sign cardholder v1 (first time → 201)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -206,7 +206,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "pm.test('201 Created (first sign)', () => pm.response.to.have.status(201));",
               "const body = pm.response.json();",
               "pm.test('returns signature with pdf_url_snapshot', () => {",
               "  pm.expect(body.id).to.be.a('number');",
@@ -220,7 +220,7 @@
       ]
     },
     {
-      "name": "09 Sign cardholder v1 (second time = idempotent)",
+      "name": "09 Sign cardholder v1 (second time → 200, idempotent)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -236,7 +236,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('2xx (no 4xx on retry)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "pm.test('200 OK (idempotent retry, no 4xx)', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
               "pm.test('same signature.id as the first call (idempotent)', () => {",
               "  pm.expect(body.id).to.equal(Number(pm.collectionVariables.get('first_signature_id')));",
@@ -457,7 +457,7 @@
       ]
     },
     {
-      "name": "18 Sign cardholder v2",
+      "name": "18 Sign cardholder v2 (first time → 201)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -473,7 +473,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
               "pm.test('snapshot is the v2 pdf_url', () => pm.expect(pm.response.json().pdf_url_snapshot).to.equal('https://example.com/cardholder-v2.pdf'));"
             ]
           }
@@ -481,7 +481,7 @@
       ]
     },
     {
-      "name": "19 Sign privacy_policy v1",
+      "name": "19 Sign privacy_policy v1 (first time → 201)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -497,14 +497,14 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+              "pm.test('201 Created', () => pm.response.to.have.status(201));"
             ]
           }
         }
       ]
     },
     {
-      "name": "20 Sign esign_consent v1",
+      "name": "20 Sign esign_consent v1 (first time → 201)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
@@ -520,7 +520,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+              "pm.test('201 Created', () => pm.response.to.have.status(201));"
             ]
           }
         }

@@ -32,7 +32,7 @@ describe('GET /me/pending-agreements', () => {
     const signRes = await request(app)
       .post(`/agreements/${cardholder!.id}/sign`)
       .set('Authorization', `Bearer ${token}`);
-    expect(signRes.status).to.equal(200);
+    expect(signRes.status).to.equal(201);
 
     const list2 = await request(app).get('/me/pending-agreements').set('Authorization', `Bearer ${token}`);
     expect(list2.body).to.have.lengthOf(1);
