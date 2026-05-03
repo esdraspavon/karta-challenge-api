@@ -3,6 +3,7 @@ import cors from 'cors';
 import { errorHandler } from './middlewares/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import usersRoutes from './modules/users/users.routes';
+import agreementsRoutes from './modules/agreements/agreements.routes';
 
 export function buildApp(): Express {
   const app = express();
@@ -16,6 +17,7 @@ export function buildApp(): Express {
 
   app.use('/auth', authRoutes);
   app.use(usersRoutes);
+  app.use(agreementsRoutes);
 
   app.use(errorHandler);
   return app;
