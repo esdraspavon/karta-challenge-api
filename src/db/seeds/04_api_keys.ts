@@ -15,6 +15,8 @@ export async function seed(knex: Knex): Promise<void> {
     key_hash: sha256(adminKey),
   });
 
+  if (process.env.NODE_ENV === 'test') return;
+
   console.log('');
   console.log('================ Karta seed completed ================');
   console.log(' Test users:');

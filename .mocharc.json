@@ -1,0 +1,8 @@
+{
+  "require": ["tsx/cjs", "tests/helpers/setup.ts"],
+  "spec": "tests/**/*.spec.ts",
+  "extensions": ["ts"],
+  "timeout": 15000,
+  "exit": true,
+  "recursive": true
+}
